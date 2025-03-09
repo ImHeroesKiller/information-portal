@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Information Portal - Centralized Data Access</title>
+    <title>Information Portal - Data Intelligence Center</title>
     
     <!-- Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -13,155 +13,214 @@
     
     <style>
         :root {
-            --primary-color: #007bff;
-            --secondary-color: #28a745;
-            --danger-color: #dc3545;
-            --light-bg: #f8f9fa;
-            --dark-bg: #343a40;
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
         }
-        
+
         body {
-            padding: 0;
-            margin: 0;
-            transition: background-color 0.3s, color 0.3s;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            transition: all 0.3s ease;
         }
-        
+
         .hero {
-            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
-                        url('https://images.unsplash.com/photo-1535996122471-35d4d3eef444?ixid=M3wzNjM5Nzd8MHwxfHNlYXJjaHwxfHxiaXNpbnNlbnN1c3xlbnwwfHx8fDE3MTc3NTEwNjF8MA&ixlib=rb-4.0.3&w=1920') no-repeat center center fixed;
+            background: linear-gradient(rgba(44, 62, 80, 0.7), rgba(44, 62, 80, 0.7)),
+                        url('https://images.pexels.com/photos/572897/pexels-photo-572897.jpeg') no-repeat center center fixed;
             background-size: cover;
             height: 400px;
-            color: white;
             padding: 100px 20px;
+            color: white;
         }
-        
+
         .dashboard-card {
             border: none;
             border-radius: 15px;
+            background: white;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
             height: 100%;
         }
-        
+
         .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
-        
+
+        .card-img-top {
+            height: 200px;
+            object-fit: cover;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+        }
+
         .footer {
-            background-color: var(--primary-color);
+            background: var(--primary);
             color: white;
             padding: 20px;
             position: relative;
             margin-top: 40px;
         }
-        
-        .search-bar {
+
+        .search-container {
             position: relative;
             margin: 20px 0;
         }
-        
-        .search-bar input {
-            width: 100%;
-            padding: 10px 40px 10px 15px;
+
+        .search-container input {
+            padding-right: 40px;
             border-radius: 25px;
+            border: 2px solid var(--secondary);
         }
-        
-        .search-bar i {
+
+        .search-container i {
             position: absolute;
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: #6c757d;
+            color: var(--secondary);
         }
-        
+
         [data-bs-theme="dark"] {
             --bs-body-bg: #212529;
             --bs-body-color: #ffffff;
+            --primary: #34495e;
+            --secondary: #2980b9;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #c0392b;
+        }
+
+        .api-status {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+
+        .img-error {
+            background: #f8f9fa;
+            border: 2px dashed var(--danger);
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <!-- Hero Section -->
-    <div class="hero">
+    <div class="hero position-relative">
         <div class="container text-center">
             <h1 class="display-4 fw-bold mb-3">Information Portal</h1>
-            <p class="lead">One-stop access to BPS strategic data and global population insights</p>
+            <p class="lead">Centralized Data Intelligence Platform for Indonesia</p>
             
             <!-- Search Bar -->
-            <div class="search-bar">
-                <input type="text" id="searchInput" class="form-control" placeholder="Search dashboards...">
+            <div class="search-container">
+                <input type="text" id="searchInput" class="form-control form-control-lg" 
+                       placeholder="Search dashboards...">
                 <i class="fas fa-search"></i>
             </div>
             
             <!-- Dark Mode Toggle -->
             <div class="form-check form-switch mt-3 d-flex justify-content-center">
                 <input class="form-check-input" type="checkbox" id="darkModeToggle">
-                <label class="form-check-label ms-2" for="darkModeToggle">Dark Mode</label>
+                <label class="form-check-label ms-2 text-white" for="darkModeToggle">
+                    <i class="fas fa-moon me-1"></i>Dark Mode
+                </label>
+            </div>
+            
+            <!-- API Status Indicator -->
+            <div class="api-status">
+                <span class="badge bg-success" id="apiStatus">
+                    <i class="fas fa-check-circle me-1"></i>API Online
+                </span>
             </div>
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="container mt-4">
+    <!-- Dashboard Grid -->
+    <div class="container mt-5">
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="dashboardGrid">
-            <!-- World Population Dashboard -->
+            <!-- World Population -->
             <div class="col" data-dashboard="world">
-                <div class="card dashboard-card h-100" onclick="window.location.href='world-population.html'">
-                    <img src="https://images.unsplash.com/photo-1535996122471-35d4d3eef444?ixid=M3wzNjM5Nzd8MHwxfHNlYXJjaHwxfHxiaXNpbnNlbnN1c3xlbnwwfHx8fDE3MTc3NTEwNjF8MA&ixlib=rb-4.0.3&w=400" 
-                         class="card-img-top" alt="World Population Dashboard">
+                <div class="dashboard-card h-100">
+                    <img src="https://images.pexels.com/photos/531880/pexels-photo-531880.jpeg" 
+                         class="card-img-top" alt="World Population"
+                         onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none')">
+                    <div class="img-error d-none">Failed to load image</div>
                     <div class="card-body">
                         <h5 class="card-title d-flex justify-content-between">
-                            🌍 World Population 
-                            <span class="badge bg-success">API Status: <i class="fas fa-check-circle"></i></span>
+                            🌍 World Population
+                            <span class="badge bg-secondary">v2.0</span>
                         </h5>
-                        <p class="card-text">Global population distribution with country details and regional analysis</p>
-                        <div class="d-grid gap-2">
-                            <a href="world-population.html" class="btn btn-primary">
-                                <i class="fas fa-globe me-2"></i>Open Dashboard
-                            </a>
+                        <p class="card-text">Global demographic analysis with interactive map and real-time stats</p>
+                        <div class="progress mb-3" style="height: 5px">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
+                        <a href="world-population.html" class="btn btn-primary w-100 stretched-link">
+                            <i class="fas fa-globe me-2"></i>Launch Dashboard
+                        </a>
                     </div>
                 </div>
             </div>
 
-            <!-- Indonesia Economic Dashboard -->
+            <!-- Indonesia Economic -->
             <div class="col" data-dashboard="economic">
-                <div class="card dashboard-card h-100" onclick="window.location.href='indonesia-economic.html'">
-                    <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?ixid=M3wzNjM5Nzd8MHwxfHNlYXJjaHwxfHxiaXNpbmVzc3xlbnwwfHx8fDE3MTc3NTEwNjF8MA&ixlib=rb-4.0.3&w=400" 
-                         class="card-img-top" alt="Indonesia Economic Dashboard">
+                <div class="dashboard-card h-100">
+                    <img src="https://images.pexels.com/photos/4348093/pexels-photo-4348093.jpeg" 
+                         class="card-img-top" alt="Economic Indicators"
+                         onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none')">
+                    <div class="img-error d-none">Failed to load image</div>
                     <div class="card-body">
                         <h5 class="card-title d-flex justify-content-between">
-                            🇮🇩 Indonesia Economic 
-                            <span class="badge bg-success">API Status: <i class="fas fa-check-circle"></i></span>
+                            🇮🇩 Indonesia Economic
+                            <span class="badge bg-warning text-dark">Beta</span>
                         </h5>
-                        <p class="card-text">Strategic economic indicators including inflation, employment, and WPI</p>
-                        <div class="d-grid gap-2">
-                            <a href="indonesia-economic.html" class="btn btn-success">
-                                <i class="fas fa-money-bill-wave me-2"></i>Open Dashboard
-                            </a>
+                        <p class="card-text">Key economic metrics including inflation, employment, and trade data</p>
+                        <div class="progress mb-3" style="height: 5px">
+                            <div class="progress-bar bg-info" role="progressbar" 
+                                 style="width: 85%" aria-valuenow="85" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
+                        <a href="indonesia-economic.html" class="btn btn-success w-100 stretched-link">
+                            <i class="fas fa-chart-line me-2"></i>Explore Data
+                        </a>
                     </div>
                 </div>
             </div>
 
-            <!-- BPS Domain Explorer -->
+            <!-- BPS Domains -->
             <div class="col" data-dashboard="domain">
-                <div class="card dashboard-card h-100" onclick="window.location.href='bps-domain.html'">
-                    <img src="https://images.unsplash.com/photo-1586424580400-7c4e94ed6193?ixid=M3wzNjM5Nzd8MHwxfHNlYXJjaHwxfHxiaXNpbmVzc3xlbnwwfHx8fDE3MTc3NTEwNjF8MA&ixlib=rb-4.0.3&w=400" 
-                         class="card-img-top" alt="BPS Domain Explorer">
+                <div class="dashboard-card h-100">
+                    <img src="https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg" 
+                         class="card-img-top" alt="BPS Domains"
+                         onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none')">
+                    <div class="img-error d-none">Failed to load image</div>
                     <div class="card-body">
                         <h5 class="card-title d-flex justify-content-between">
-                            🗺️ BPS Domains 
-                            <span class="badge bg-success">API Status: <i class="fas fa-check-circle"></i></span>
+                            🗺️ BPS Domains
+                            <span class="badge bg-info">v1.2</span>
                         </h5>
-                        <p class="card-text">Explore BPS administrative domains from national to city level</p>
-                        <div class="d-grid gap-2">
-                            <a href="bps-domain.html" class="btn btn-info text-white">
-                                <i class="fas fa-map-marker-alt me-2"></i>Open Dashboard
-                            </a>
+                        <p class="card-text">Administrative domain explorer for BPS statistics network</p>
+                        <div class="progress mb-3" style="height: 5px">
+                            <div class="progress-bar bg-primary" role="progressbar" 
+                                 style="width: 75%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
+                        <a href="bps-domain.html" class="btn btn-info text-white w-100 stretched-link">
+                            <i class="fas fa-sitemap me-2"></i>Access Domains
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Future Dashboard -->
+            <div class="col" data-dashboard="future">
+                <div class="dashboard-card h-100 bg-light">
+                    <div class="card-body text-center">
+                        <i class="fas fa-plus-circle fa-3x text-secondary mb-3"></i>
+                        <h5 class="card-title">Add New Dashboard</h5>
+                        <p class="card-text">Coming soon with more features and data sources</p>
                     </div>
                 </div>
             </div>
@@ -169,15 +228,15 @@
     </div>
 
     <!-- Footer -->
-    <div class="footer">
+    <div class="footer mt-5">
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <p class="mb-0">© 2023 Information Portal | BPS API Key: 6b47ec33eb086414844602c0c042707a</p>
+                    <p class="mb-0">© 2023 BPS Data Intelligence Center</p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <a href="#" class="text-white me-3">Privacy Policy</a>
-                    <a href="#" class="text-white">API Documentation</a>
+                    <a href="#" class="text-white">API Status</a>
                 </div>
             </div>
         </div>
@@ -187,9 +246,9 @@
         // Dark Mode Handling
         const toggle = document.getElementById('darkModeToggle');
         toggle.addEventListener('change', () => {
-            document.body.setAttribute('data-bs-theme', 
-                toggle.checked ? 'dark' : 'light');
-            localStorage.setItem('theme', toggle.checked ? 'dark' : 'light');
+            const theme = toggle.checked ? 'dark' : 'light';
+            document.body.setAttribute('data-bs-theme', theme);
+            localStorage.setItem('theme', theme);
         });
 
         // Load saved theme
@@ -209,36 +268,33 @@
             });
         });
 
-        // API Status Check
+        // API Status Checker
         async function checkAPIStatus() {
             try {
                 const response = await fetch('https://webapi.bps.go.id/v1/api/list/model/indicators/domain/0/key/6b47ec33eb086414844602c0c042707a');
                 const status = response.ok ? 'success' : 'danger';
-                document.querySelectorAll('.badge').forEach(badge => {
-                    badge.className = `badge bg-${status}`;
-                    badge.innerHTML = `API Status: <i class="fas ${status === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'"></i>`;
-                });
+                const icon = status === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+                document.getElementById('apiStatus').innerHTML = `
+                    <i class="fas ${icon} me-1"></i>API ${status === 'success' ? 'Online' : 'Offline'}
+                `;
+                document.getElementById('apiStatus').className = `badge bg-${status}`;
             } catch (error) {
-                console.error('API check failed:', error);
-                document.querySelectorAll('.badge').forEach(badge => {
-                    badge.className = 'badge bg-danger';
-                    badge.innerHTML = `API Status: <i class="fas fa-exclamation-triangle"></i>`;
-                });
+                document.getElementById('apiStatus').innerHTML = `
+                    <i class="fas fa-exclamation-triangle me-1"></i>API Unreachable
+                `;
+                document.getElementById('apiStatus').className = 'badge bg-danger';
             }
         }
 
         checkAPIStatus();
-        setInterval(checkAPIStatus, 60000); // Check every minute
+        setInterval(checkAPIStatus, 60000);
 
-        // Smooth transitions
-        document.querySelectorAll('.dashboard-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                e.preventDefault();
-                card.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    window.location.href = card.querySelector('a').getAttribute('href');
-                }, 200);
-            });
+        // Image error handling
+        document.querySelectorAll('.card-img-top').forEach(img => {
+            img.onerror = function() {
+                this.classList.add('d-none');
+                this.nextElementSibling.classList.remove('d-none');
+            };
         });
     </script>
 </body>
