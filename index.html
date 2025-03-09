@@ -95,7 +95,7 @@
 
         .api-status {
             position: absolute;
-            top: 10px;
+            top: 20px;
             right: 20px;
         }
 
@@ -141,12 +141,12 @@
 
     <!-- Dashboard Grid -->
     <div class="container mt-5">
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="dashboardGrid">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="dashboardGrid">
             <!-- World Population -->
             <div class="col" data-dashboard="world">
-                <div class="dashboard-card h-100">
+                <div class="dashboard-card h-100" onclick="window.location.href='world-population.html'">
                     <img src="https://images.pexels.com/photos/531880/pexels-photo-531880.jpeg" 
-                         class="card-img-top" alt="World Population"
+                         class="card-img-top" alt="World Population Dashboard"
                          onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none')">
                     <div class="img-error d-none">Failed to load image</div>
                     <div class="card-body">
@@ -168,7 +168,7 @@
 
             <!-- Indonesia Economic -->
             <div class="col" data-dashboard="economic">
-                <div class="dashboard-card h-100">
+                <div class="dashboard-card h-100" onclick="window.location.href='indonesia-economic.html'">
                     <img src="https://images.pexels.com/photos/4348093/pexels-photo-4348093.jpeg" 
                          class="card-img-top" alt="Economic Indicators"
                          onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none')">
@@ -192,7 +192,7 @@
 
             <!-- BPS Domains -->
             <div class="col" data-dashboard="domain">
-                <div class="dashboard-card h-100">
+                <div class="dashboard-card h-100" onclick="window.location.href='bps-domain.html'">
                     <img src="https://images.pexels.com/photos/730547/pexels-photo-730547.jpeg" 
                          class="card-img-top" alt="BPS Domains"
                          onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none')">
@@ -214,13 +214,20 @@
                 </div>
             </div>
 
-            <!-- Future Dashboard -->
-            <div class="col" data-dashboard="future">
-                <div class="dashboard-card h-100 bg-light">
+            <!-- JSON Inspector -->
+            <div class="col" data-dashboard="json">
+                <div class="dashboard-card h-100 bg-light" onclick="window.location.href='json-inspector.html'">
                     <div class="card-body text-center">
-                        <i class="fas fa-plus-circle fa-3x text-secondary mb-3"></i>
-                        <h5 class="card-title">Add New Dashboard</h5>
-                        <p class="card-text">Coming soon with more features and data sources</p>
+                        <i class="fas fa-code fa-3x text-secondary mb-3"></i>
+                        <h5 class="card-title">🔍 JSON Inspector</h5>
+                        <p class="card-text">Real-time API response viewer for debugging</p>
+                        <div class="progress mb-3" style="height: 5px">
+                            <div class="progress-bar bg-secondary" role="progressbar" 
+                                 style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <a href="json-inspector.html" class="btn btn-secondary w-100">
+                            <i class="fas fa-brackets-curly me-2"></i>Open Inspector
+                        </a>
                     </div>
                 </div>
             </div>
@@ -232,11 +239,24 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <p class="mb-0">© 2023 BPS Data Intelligence Center</p>
+                    <div class="d-flex align-items-center">
+                        <img src="https://arywibowo.id/favicon.ico" alt="Logo" width="32" class="me-2">
+                        <div>
+                            <p class="mb-0 fw-bold">arywibowo.id</p>
+                            <small class="text-muted">Data Intelligence Solutions</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <a href="#" class="text-white me-3">Privacy Policy</a>
-                    <a href="#" class="text-white">API Status</a>
+                    <p class="mb-0">
+                        <a href="mailto:aku@arywibowo.id" class="text-white me-3">
+                            <i class="fas fa-envelope me-1"></i>aku@arywibowo.id
+                        </a>
+                        <a href="https://arywibowo.id" target="_blank" class="text-white">
+                            <i class="fas fa-globe me-1"></i>arywibowo.id
+                        </a>
+                    </p>
+                    <small>API Key: 6b47ec33eb086414844602c0c042707a</small>
                 </div>
             </div>
         </div>
@@ -288,14 +308,6 @@
 
         checkAPIStatus();
         setInterval(checkAPIStatus, 60000);
-
-        // Image error handling
-        document.querySelectorAll('.card-img-top').forEach(img => {
-            img.onerror = function() {
-                this.classList.add('d-none');
-                this.nextElementSibling.classList.remove('d-none');
-            };
-        });
     </script>
 </body>
 </html>
