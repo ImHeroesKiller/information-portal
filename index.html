@@ -3,42 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🇮🇩 Indonesia Strategic Indicators Dashboard</title>
+    <title>🇮🇩 BPS Domain Explorer</title>
     
     <!-- Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.3.0/build/global/luxon.min.js"></script>
     
     <style>
-        body { padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .loader { 
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
+        body { padding: 20px; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .indicator-card { cursor: pointer; transition: transform 0.2s; }
-        .indicator-card:hover { transform: translateY(-5px); }
+        .domain-card { cursor: pointer; transition: transform 0.2s; }
+        .domain-card:hover { transform: translateY(-5px); }
         .province-flag { width: 32px; height: 32px; object-fit: cover; margin-right: 10px; }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
+    <div class="container">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="display-6 fw-bold">Indonesia Strategic Indicators</h1>
+            <h1 class="display-6 fw-bold">BPS Domain Explorer</h1>
             <div class="d-flex">
-                <button class="btn btn-outline-info me-2" onclick="refreshData()">
+                <select id="domainType" class="form-select me-2 w-auto">
+                    <option value="prov">Province</option>
+                    <option value="kab">City/Regency</option>
+                    <option value="kabbyprov">City by Province</option>
+                </select>
+                <button class="btn btn-outline-info" onclick="refreshData()">
                     <i class="fas fa-sync"></i> Refresh
                 </button>
-                <select id="domainFilter" class="form-select w-auto">
-                    <option value="0">Central Government</option>
-                    <option value="354">Provincial Level</option>
-                </select>
             </div>
         </div>
 
@@ -46,29 +39,26 @@
         <div id="error-message" class="alert alert-danger d-none"></div>
         
         <div id="content" class="d-none">
-            <!-- Central Indicators -->
-            <div class="row" id="centralIndicators">
-                <div class="col-12">
-                    <h4 class="text-center">National Strategic Indicators</h4>
-                </div>
-            </div>
-
-            <!-- Provincial Section -->
-            <div class="row mt-4" id="provincialSection">
+            <!-- Province Selection for kabbyprov -->
+            <div class="row mb-3 d-none" id="provinceSelector">
                 <div class="col-md-4">
-                    <select id="provinceSelect" class="form-select mb-3">
+                    <select id="provinceFilter" class="form-select">
                         <option value="">Select Province</option>
                     </select>
                 </div>
-                <div class="col-md-8">
+            </div>
+
+            <!-- Data Display -->
+            <div class="row" id="dataContainer">
+                <div class="col-12">
                     <div class="table-responsive">
-                        <table class="table table-striped" id="provinceTable">
+                        <table class="table table-striped" id="domainTable">
                             <thead>
                                 <tr>
-                                    <th>Indicator</th>
-                                    <th>Value</th>
-                                    <th>Unit</th>
-                                    <th>Last Updated</th>
+                                    <th>Domain ID</th>
+                                    <th>Name</th>
+                                    <th>URL</th>
+                                    <th>Type</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -81,129 +71,96 @@
 
     <script>
         const BPS_API_KEY = '6b47ec33eb086414844602c0c042707a';
-        let currentPage = 1;
-        let totalPages = 1;
+        let currentDomains = [];
 
         document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('domainType').addEventListener('change', handleTypeChange);
             init();
-            document.getElementById('domainFilter').addEventListener('change', handleDomainChange);
         });
 
         async function init() {
             try {
                 showLoading();
-                await fetchCentralIndicators();
+                await fetchDomains('prov');
                 showContent();
             } catch (error) {
                 showError(error.message);
             }
         }
 
-        async function fetchCentralIndicators() {
-            const response = await fetchBPSData('indicators/0');
-            if (!response) return;
-
-            const indicators = response.data[1]?.data || [];
-            displayCentralIndicators(indicators);
-        }
-
-        async function fetchProvincialIndicators(domainCode) {
-            const response = await fetchBPSData(`indicators/354/${domainCode}`);
-            if (!response) return;
-
-            const indicators = response.data[1]?.data || [];
-            displayProvincialIndicators(indicators);
-        }
-
-        async function fetchBPSData(endpoint) {
+        async function fetchDomains(type, provId = null) {
             try {
-                const url = `https://webapi.bps.go.id/v1/api/${endpoint}/page/${currentPage}/key/${BPS_API_KEY}`;
-                const response = await fetch(url);
+                let endpoint = `domain/${type}`;
+                if (type === 'kabbyprov' && provId) endpoint += `/${provId}`;
+                
+                const response = await fetch(
+                    `https://webapi.bps.go.id/v1/api/${endpoint}/key/${BPS_API_KEY}`
+                );
                 
                 if (!response.ok) throw new Error('API request failed');
                 const data = await response.json();
                 
-                totalPages = data.data[0]?.pages || 1;
-                return data;
+                return data.data[0]?.data || [];
             } catch (error) {
-                console.error('Error fetching data:', error);
-                return null;
+                console.error('Error fetching domains:', error);
+                return [];
             }
         }
 
-        function displayCentralIndicators(indicators) {
-            const container = document.getElementById('centralIndicators');
-            container.innerHTML = `
-                <div class="col-12">
-                    <h4 class="text-center">National Strategic Indicators</h4>
-                </div>
-                ${indicators.map(indicator => `
-                    <div class="col-md-4 mb-3">
-                        <div class="card indicator-card p-3 h-100">
-                            <h5>${indicator.title}</h5>
-                            <h2 class="text-primary">${formatValue(indicator.value)}</h2>
-                            <p class="text-muted mb-0">${indicator.unit}</p>
-                            <small class="text-secondary">${indicator.desc}</small>
-                        </div>
-                    </div>
-                `).join('')}
-            `;
-        }
-
-        function displayProvincialIndicators(indicators) {
-            const tbody = document.getElementById('provinceTable').getElementsByTagName('tbody')[0];
-            tbody.innerHTML = indicators.map(indicator => `
+        function populateTable(data) {
+            const tbody = document.getElementById('domainTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = data.map(item => `
                 <tr>
-                    <td>${indicator.title}</td>
-                    <td>${formatValue(indicator.value)}</td>
-                    <td>${indicator.unit}</td>
-                    <td>${luxon.DateTime.now().toLocaleString('id-ID')}</td>
+                    <td>${item.domain_id}</td>
+                    <td>${item.domain_name}</td>
+                    <td><a href="${item.domain_url}" target="_blank">${item.domain_url}</a></td>
+                    <td>${getTypeLabel(item.domain_id)}</td>
                 </tr>
             `).join('');
         }
 
-        function formatValue(value) {
-            if (typeof value === 'number') {
-                return new Intl.NumberFormat('id-ID').format(value);
-            }
-            return value || '-';
+        function getTypeLabel(domainId) {
+            if (domainId.length === 2) return 'Province';
+            if (domainId.length === 4) return 'City/Regency';
+            return 'National';
         }
 
-        async function handleDomainChange(e) {
-            if (e.target.value === "354") {
-                showLoading();
-                try {
-                    const provinces = await fetchBPSData('domain/354');
-                    populateProvinceSelect(provinces.data[0]?.data || []);
+        async function handleTypeChange(e) {
+            const type = e.target.value;
+            showLoading();
+            
+            try {
+                if (type === 'kabbyprov') {
+                    // Tampilkan dropdown provinsi
+                    document.getElementById('provinceSelector').classList.remove('d-none');
+                    const provinces = await fetchDomains('prov');
+                    
+                    const provSelect = document.getElementById('provinceFilter');
+                    provSelect.innerHTML = '<option value="">Select Province</option>';
+                    provinces.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.domain_id;
+                        option.textContent = p.domain_name;
+                        provSelect.appendChild(option);
+                    });
+                    
+                    provSelect.addEventListener('change', async (e) => {
+                        if (e.target.value) {
+                            showLoading();
+                            const cities = await fetchDomains('kabbyprov', e.target.value);
+                            populateTable(cities);
+                            showContent();
+                        }
+                    });
+                } else {
+                    document.getElementById('provinceSelector').classList.add('d-none');
+                    const domains = await fetchDomains(type);
+                    populateTable(domains);
                     showContent();
-                } catch (error) {
-                    showError('Failed to load provinces');
                 }
-            } else {
-                document.getElementById('provincialSection').classList.add('d-none');
-                await fetchCentralIndicators();
+            } catch (error) {
+                showError('Failed to load domain data');
             }
-        }
-
-        function populateProvinceSelect(provinces) {
-            const select = document.getElementById('provinceSelect');
-            select.innerHTML = '<option value="">Select Province</option>';
-            
-            provinces.forEach(province => {
-                const option = document.createElement('option');
-                option.value = province.kode;
-                option.textContent = province.nama;
-                select.appendChild(option);
-            });
-
-            select.addEventListener('change', async (e) => {
-                if (!e.target.value) return;
-                showLoading();
-                await fetchProvincialIndicators(e.target.value);
-                showContent();
-            });
-            
-            document.getElementById('provincialSection').classList.remove('d-none');
         }
 
         function showLoading() {
@@ -226,12 +183,12 @@
         function refreshData() {
             showLoading();
             setTimeout(() => {
-                const domain = document.getElementById('domainFilter').value;
-                if (domain === "354") {
-                    const provinceCode = document.getElementById('provinceSelect').value;
-                    if (provinceCode) fetchProvincialIndicators(provinceCode);
+                const type = document.getElementById('domainType').value;
+                if (type === 'kabbyprov') {
+                    const provId = document.getElementById('provinceFilter').value;
+                    handleTypeChange({ target: { value: type } });
                 } else {
-                    fetchCentralIndicators();
+                    handleTypeChange({ target: { value: type } });
                 }
             }, 1000);
         }
