@@ -3,58 +3,485 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Gallery</title>
+    <title>🌍 World Population Intelligence</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson@3/dist/topojson.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-
-        .gallery {
-            max-width: 800px;
-            margin: 20px auto;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-        }
-
-        .video-item {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        .video-item iframe {
-            width: 100%;
-            height: 360px;
-            border: none;
-        }
-
-        .video-item h3 {
-            font-size: 18px;
-            margin: 0;
-            padding: 10px;
-            background-color: #f5f5f5;
-            color: #333;
-        }
+        body { padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .country-flag { width: 32px; height: 24px; object-fit: cover; margin-right: 10px; }
+        .tooltip-inner { max-width: 400px; text-align: left; }
+        .map-container { height: 500px; }
+        .modal-body { max-height: 600px; overflow-y: auto; }
     </style>
 </head>
 <body>
-    <h1>Video Gallery</h1>
-    <div class="gallery">
-        <div class="video-item">
-            <iframe src="https://luluvdo.com/e/d8gpm6vgisni" scrolling="no" frameborder="0" width="640" height="360" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true"></iframe>
-            <h3>Skandal Audrey Davis - PoopHD - DoodStream</h3>
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="display-6 fw-bold">🌍 World Population Intelligence</h1>
+            <div class="d-flex">
+                <button class="btn btn-outline-secondary me-2" onclick="refreshData()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#aboutModal">
+                    <i class="fas fa-info-circle"></i> About
+                </button>
+            </div>
         </div>
-        <!-- Tambahkan video lain di sini jika diperlukan -->
+
+        <div class="alert alert-secondary d-flex justify-content-between" role="alert">
+            <div>Last updated: <span id="lastUpdated">-</span></div>
+            <div>Data source: <a href="https://restcountries.com" target="_blank">REST Countries API</a></div>
+            <div class="text-muted">API calls: <span id="apiCounter">0</span></div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-globe me-2"></i>Global Population Distribution
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="worldMap" class="map-container"></div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <i class="fas fa-chart-bar me-2"></i>Top 10 Most Populous Countries
+                    </div>
+                    <div class="card-body">
+                        <canvas id="populationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <i class="fas fa-tachometer-alt me-2"></i>Key Metrics
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <h5 class="text-muted">Total Population</h5>
+                                <h2 class="text-primary" id="totalPopulation">-</h2>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <h5 class="text-muted">Countries Tracked</h5>
+                                <h2 class="text-info" id="countryCount">-</h2>
+                            </div>
+                            <div class="col-12">
+                                <h5 class="text-muted">Regional Distribution</h5>
+                                <canvas id="regionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between">
+                        <span><i class="fas fa-table me-2"></i>Country Explorer</span>
+                        <button class="btn btn-sm btn-light" onclick="exportToCSV()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search countries...">
+                            <select id="regionFilter" class="form-select"></select>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="countryTable">
+                                <thead>
+                                    <tr>
+                                        <th>Flag</th>
+                                        <th>Name</th>
+                                        <th>Population</th>
+                                        <th>Density</th>
+                                        <th>Region</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="countryModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Country Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="modalContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="aboutModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">About This Dashboard</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Real-time population dashboard showing:</p>
+                        <ul>
+                            <li>Interactive world population map</li>
+                            <li>Top 10 most populous countries</li>
+                            <li>Regional population distribution</li>
+                            <li>Searchable country database</li>
+                            <li>Population density metrics</li>
+                        </ul>
+                        <p>Data updated: <span id="lastUpdatedModal">-</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <script>
+        // Variabel Global
+        let allCountries = [];
+        let mapData;
+        let apiCallCount = 0;
+
+        // Inisialisasi Dashboard
+        async function init() {
+            try {
+                // Tampilkan loader
+                document.getElementById('loading').style.display = 'block';
+                
+                // Ambil data dari API
+                allCountries = await fetchData();
+                if (!allCountries.length) return;
+
+                // Update status
+                updateStatus();
+
+                // Render komponen
+                createPopulationChart();
+                createRegionChart();
+                await createWorldMap();
+                populateTable(allCountries);
+                setupFilters();
+
+                // Sembunyikan loader
+                document.getElementById('loading').remove();
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                alert('Failed to load dashboard. Check console for details.');
+            }
+        }
+
+        // Ambil data dari REST Countries API
+        async function fetchData() {
+            apiCallCount++;
+            const response = await fetch('https://restcountries.com/v3.1/all');
+            const data = await response.json();
+            
+            return data
+                .filter(c => c.population && c.name?.common)
+                .map(c => ({
+                    name: c.name.common,
+                    population: c.population,
+                    area: c.area || 0,
+                    region: c.region || 'Other',
+                    subregion: c.subregion || 'N/A',
+                    flag: c.flags.svg,
+                    capital: c.capital?.[0] || 'N/A',
+                    latlng: c.latlng || [0, 0]
+                }))
+                .sort((a, b) => b.population - a.population);
+        }
+
+        // Fungsi format angka
+        const formatNumber = (num) => new Intl.NumberFormat('en-US').format(num);
+        const formatDensity = (pop, area) => area > 0 ? (pop / area).toFixed(1) : '0';
+
+        // Update status informasi
+        function updateStatus() {
+            document.getElementById('lastUpdated').textContent = luxon.DateTime.now().toRelative();
+            document.getElementById('lastUpdatedModal').textContent = luxon.DateTime.now().toLocaleString();
+            document.getElementById('countryCount').textContent = allCountries.length;
+            document.getElementById('totalPopulation').textContent = formatNumber(
+                allCountries.reduce((sum, c) => sum + c.population, 0)
+            );
+            document.getElementById('apiCounter').textContent = apiCallCount;
+        }
+
+        // Chart Populasi Top 10
+        function createPopulationChart() {
+            const ctx = document.getElementById('populationChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: allCountries.slice(0, 10).map(c => c.name),
+                    datasets: [{
+                        label: 'Population',
+                        data: allCountries.slice(0, 10).map(c => c.population),
+                        backgroundColor: '#2c3e50',
+                        borderColor: '#34495e',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => 
+                                    `${ctx.label}: ${formatNumber(ctx.raw)} people`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: (v) => formatNumber(v)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart Distribusi Regional
+        function createRegionChart() {
+            const regionCounts = {};
+            allCountries.forEach(c => {
+                regionCounts[c.region] = (regionCounts[c.region] || 0) + c.population;
+            });
+
+            const ctx = document.getElementById('regionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(regionCounts),
+                    datasets: [{
+                        label: 'Regional Population',
+                        data: Object.values(regionCounts),
+                        backgroundColor: [
+                            '#2ecc71', '#3498db', '#9b59b6', 
+                            '#f1c40f', '#e74c3c', '#34495e'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => 
+                                    `${ctx.label}: ${formatNumber(ctx.raw)} people`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Peta Dunia dengan D3.js
+        async function createWorldMap() {
+            const width = 800;
+            const height = 500;
+
+            // Load data geografis
+            const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json');
+            mapData = topojson.feature(world, world.objects.countries).features;
+
+            // Buat SVG container
+            const svg = d3.select('#worldMap')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .style('background', '#f0f0f0');
+
+            // Proyeksi peta
+            const projection = d3.geoMercator()
+                .scale(130)
+                .translate([width / 2, height / 1.5]);
+
+            const path = d3.geoPath().projection(projection);
+
+            // Skala warna
+            const color = d3.scaleThreshold()
+                .domain([1e6, 1e7, 5e7, 1e8, 5e8, 1e9])
+                .range(d3.schemeYlGnBu[7]);
+
+            // Gambar peta
+            svg.selectAll('path')
+                .data(mapData)
+                .enter()
+                .append('path')
+                .attr('d', path)
+                .attr('fill', '#ccc')
+                .style('stroke', '#fff')
+                .style('stroke-width', 0.5)
+                .on('mouseover', (event, d) => {
+                    const country = allCountries.find(c => c.name === d.properties.name);
+                    if (country) {
+                        d3.select(event.currentTarget).attr('fill', '#2c3e50');
+                        showTooltip(event, country);
+                    }
+                })
+                .on('mouseout', (event) => {
+                    d3.select(event.currentTarget).attr('fill', '#ccc');
+                    hideTooltip();
+                })
+                .on('click', (event, d) => showCountryModal(d.properties.name));
+
+            // Tambahkan data populasi ke mapData
+            mapData.forEach(d => {
+                const country = allCountries.find(c => c.name === d.properties.name);
+                d.population = country ? country.population : 0;
+            });
+
+            // Update warna berdasarkan populasi
+            svg.selectAll('path')
+                .attr('fill', d => color(d.population || 0));
+        }
+
+        // Tabel Negara
+        function populateTable(data) {
+            const tbody = document.querySelector('#countryTable tbody');
+            tbody.innerHTML = data.map(c => `
+                <tr onclick="showCountryModal('${c.name}')">
+                    <td><img src="${c.flag}" class="country-flag"></td>
+                    <td>${c.name}</td>
+                    <td>${formatNumber(c.population)}</td>
+                    <td>${formatDensity(c.population, c.area)} /km²</td>
+                    <td>${c.region}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Filter Pencarian
+        function setupFilters() {
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                const filtered = allCountries.filter(c => 
+                    c.name.toLowerCase().includes(term)
+                );
+                populateTable(filtered);
+            });
+
+            const regions = ['All', ...new Set(allCountries.map(c => c.region))];
+            const filter = document.getElementById('regionFilter');
+            
+            regions.forEach(r => {
+                const option = document.createElement('option');
+                option.value = r;
+                option.textContent = r;
+                filter.appendChild(option);
+            });
+
+            filter.addEventListener('change', (e) => {
+                const region = e.target.value;
+                const filtered = region === 'All' 
+                    ? allCountries 
+                    : allCountries.filter(c => c.region === region);
+                populateTable(filtered);
+            });
+        }
+
+        // Modal Detail Negara
+        function showCountryModal(name) {
+            const country = allCountries.find(c => c.name === name);
+            if (!country) return;
+
+            const html = `
+                <div class="row">
+                    <div class="col-md-4">
+                        <img src="${country.flag}" class="img-fluid rounded" alt="Flag">
+                    </div>
+                    <div class="col-md-8">
+                        <h3>${country.name}</h3>
+                        <p><strong>Population:</strong> ${formatNumber(country.population)}</p>
+                        <p><strong>Area:</strong> ${formatNumber(country.area)} km²</p>
+                        <p><strong>Density:</strong> ${formatDensity(country.population, country.area)} /km²</p>
+                        <p><strong>Region:</strong> ${country.region}</p>
+                        <p><strong>Subregion:</strong> ${country.subregion}</p>
+                        <p><strong>Capital:</strong> ${country.capital}</p>
+                        <p><strong>Coordinates:</strong> ${country.latlng.join(', ')}</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modalContent').innerHTML = html;
+            const modal = new bootstrap.Modal(document.getElementById('countryModal'));
+            modal.show();
+        }
+
+        // Ekspor ke CSV
+        function exportToCSV() {
+            const headers = ['Name', 'Population', 'Area', 'Density', 'Region', 'Subregion', 'Capital'];
+            const rows = allCountries.map(c => [
+                c.name,
+                c.population,
+                c.area,
+                formatDensity(c.population, c.area),
+                c.region,
+                c.subregion,
+                c.capital
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "population_data.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+
+        // Refresh Data
+        function refreshData() {
+            document.getElementById('loading').style.display = 'block';
+            setTimeout(() => {
+                init();
+            }, 1000);
+        }
+
+        // Tooltip
+        const tooltip = d3.select('body').append('div')
+            .attr('class', 'position-absolute bg-dark text-white p-2 rounded')
+            .style('display', 'none');
+
+        function showTooltip(event, country) {
+            tooltip.style('display', 'block')
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 20) + 'px')
+                .html(`
+                    <strong>${country.name}</strong><br>
+                    Population: ${formatNumber(country.population)}<br>
+                    Area: ${formatNumber(country.area)} km²<br>
+                    Density: ${formatDensity(country.population, country.area)}/km²
+                `);
+        }
+
+        function hideTooltip() {
+            tooltip.style('display', 'none');
+        }
+
+        // Inisialisasi saat DOM loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
 </body>
 </html>
