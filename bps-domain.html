@@ -25,7 +25,6 @@
         <div id="error-message" class="alert alert-danger d-none"></div>
         
         <div id="content" class="d-none">
-            <!-- Indicators -->
             <div class="row">
                 <div class="col-md-4">
                     <div class="card mb-3">
@@ -53,7 +52,6 @@
                 </div>
             </div>
 
-            <!-- Economic Chart -->
             <div class="card mb-4">
                 <div class="card-header bg-success text-white">
                     <i class="fas fa-chart-line me-2"></i>Economic Indicators
@@ -63,7 +61,6 @@
                 </div>
             </div>
 
-            <!-- Regional Data -->
             <div class="card">
                 <div class="card-header bg-info text-white">
                     <i class="fas fa-map-marker-alt me-2"></i>Regional Data Explorer
@@ -82,7 +79,9 @@
                                     <th>Unit</th>
                                 </tr>
                             </thead>
-                            <tbody></tbody>
+                            <tbody>
+                                <tr><td colspan="4">Loading data...</td></tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -102,29 +101,29 @@
             try {
                 showLoading();
                 
-                // Fetch national data
-                const [populationData, inflationData, unemploymentData] = await Promise.all([
+                // Ambil data nasional
+                const [populationRes, inflationRes, unemploymentRes] = await Promise.all([
                     fetchBPSData(`data/${VARIABLES.POPULATION}/domain/0`),
                     fetchBPSData(`data/${VARIABLES.INFLATION}/domain/0`),
                     fetchBPSData(`data/${VARIABLES.UNEMPLOYMENT}/domain/0`)
                 ]);
 
-                // Process data
-                const totalPopulation = populationData?.data[1]?.data[0]?.jumlah?.replace(/,/g, '') || 0;
-                const inflationRate = inflationData?.data[1]?.data[0]?.jumlah || 'N/A';
-                const unemploymentRate = unemploymentData?.data[1]?.data[0]?.jumlah || 'N/A';
+                // Validasi data
+                const populationData = validateData(populationRes, 'Population');
+                const inflationData = validateData(inflationRes, 'Inflation');
+                const unemploymentData = validateData(unemploymentRes, 'Unemployment');
 
                 // Update UI
-                document.getElementById('totalPopulation').textContent = formatNumber(totalPopulation);
-                document.getElementById('inflationRate').textContent = inflationRate;
-                document.getElementById('unemploymentRate').textContent = unemploymentRate;
+                document.getElementById('totalPopulation').textContent = formatNumber(populationData.value);
+                document.getElementById('inflationRate').textContent = inflationData.value;
+                document.getElementById('unemploymentRate').textContent = unemploymentData.value;
 
-                // Fetch provinces for dropdown
-                const provinces = await fetchBPSData('domain/prov');
-                populateProvinceSelect(provinces?.data[0]?.data || []);
-
-                // Create economic chart
+                // Buat chart
                 createEconomicChart(populationData, inflationData, unemploymentData);
+
+                // Ambil data provinsi
+                const provinces = await fetchBPSData('domain/prov');
+                populateProvinceSelect(provinces);
 
                 showContent();
             } catch (error) {
@@ -139,41 +138,65 @@
                 const response = await fetch(url);
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
+                    throw new Error(`API request failed: ${response.status}`);
                 }
 
                 const data = await response.json();
-                console.log('API Response:', data); // Tambahkan log untuk debugging
-                return data;
+                console.log('API Response:', data); // Debugging
+                return data.data || [];
             } catch (error) {
                 console.error('Fetch error:', error);
                 return null;
             }
         }
 
-        function createEconomicChart(population, inflation, unemployment) {
+        function validateData(response, dataType) {
+            if (!response || response.length < 2) {
+                throw new Error(`Invalid ${dataType} data structure`);
+            }
+
+            const metaData = response[0];
+            const mainData = response[1]?.data || [];
+
+            if (!mainData.length) {
+                throw new Error(`No ${dataType} data available`);
+            }
+
+            return {
+                value: mainData[0]?.jumlah?.replace(/,/g, '') || 0,
+                unit: mainData[0]?.unit || 'N/A',
+                lastUpdate: metaData?.last_update || 'N/A'
+            };
+        }
+
+        function createEconomicChart(pop, inf, unemp) {
             const ctx = document.getElementById('economicChart').getContext('2d');
             new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ['Population', 'Inflation', 'Unemployment'],
                     datasets: [{
-                        label: 'Indicators',
-                        data: [
-                            population?.data[1]?.data[0]?.jumlah?.replace(/,/g, '') || 0,
-                            inflation?.data[1]?.data[0]?.jumlah || 0,
-                            unemployment?.data[1]?.data[0]?.jumlah || 0
-                        ],
-                        backgroundColor: ['#2c3e50', '#f1c40f', '#e74c3c']
+                        label: 'National Indicators',
+                        data: [pop.value, inf.value, unemp.value],
+                        backgroundColor: ['#2c3e50', '#f1c40f', '#e74c3c'],
+                        borderColor: ['#34495e', '#f39c12', '#c0392b'],
+                        borderWidth: 1
                     }]
                 },
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: (ctx) => `${ctx.label}: ${ctx.formattedValue}`
+                                label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)} ${ctx.dataset.label}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (v) => formatNumber(v)
                             }
                         }
                     }
@@ -181,12 +204,18 @@
             });
         }
 
-        function populateProvinceSelect(provinces) {
+        function populateProvinceSelect(provincesRes) {
+            if (!provincesRes || provincesRes.length < 2) {
+                return showError('Invalid province data');
+            }
+
+            const provinces = provincesRes[1]?.data || [];
             const select = document.getElementById('provinceSelect');
+            
             provinces.forEach(p => {
                 const option = document.createElement('option');
-                option.value = p.domain_id;
-                option.textContent = p.domain_name;
+                option.value = p.kode;
+                option.textContent = p.nama;
                 select.appendChild(option);
             });
 
@@ -195,12 +224,12 @@
                 showLoading();
                 
                 try {
-                    const [provPopulation, provInflation] = await Promise.all([
+                    const [provPop, provInf] = await Promise.all([
                         fetchBPSData(`data/${VARIABLES.POPULATION}/domain/${e.target.value}`),
                         fetchBPSData(`data/${VARIABLES.INFLATION}/domain/${e.target.value}`)
                     ]);
 
-                    populateRegencyTable(provPopulation?.data[1]?.data || [], provInflation?.data[1]?.data || []);
+                    populateRegencyTable(provPop, provInf);
                     showContent();
                 } catch (error) {
                     showError('Failed to load provincial data');
@@ -208,39 +237,33 @@
             });
         }
 
-        function populateRegencyTable(populationData, inflationData) {
-            const tbody = document.getElementById('regencyTable').getElementsByTagName('tbody')[0];
-            
-            // Contoh gabungan data (sesuaikan dengan struktur JSON)
-            const data = populationData.map(p => {
-                const inflation = inflationData.find(i => i.kode === p.kode);
-                return {
-                    name: p.nama,
-                    population: p.jumlah?.replace(/,/g, '') || 0,
-                    inflation: inflation?.jumlah || 'N/A'
-                };
-            });
+        function populateRegencyTable(popRes, infRes) {
+            const popData = popRes?.[1]?.data || [];
+            const infData = infRes?.[1]?.data || [];
 
-            tbody.innerHTML = data.map(d => `
-                <tr>
-                    <td>${d.name}</td>
-                    <td>Population</td>
-                    <td>${formatNumber(d.population)}</td>
-                    <td>people</td>
-                </tr>
-                <tr>
-                    <td>${d.name}</td>
-                    <td>Inflation</td>
-                    <td>${d.inflation}</td>
-                    <td>%</td>
-                </tr>
-            `).join('');
+            const tbody = document.getElementById('regencyTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = `
+                ${popData.map(p => `
+                    <tr>
+                        <td>${p.nama}</td>
+                        <td>Population</td>
+                        <td>${formatNumber(p.jumlah?.replace(/,/g, '') || 0)}</td>
+                        <td>${p.unit || 'people'}</td>
+                    </tr>
+                `).join('')}
+                ${infData.map(i => `
+                    <tr>
+                        <td>${i.nama}</td>
+                        <td>Inflation</td>
+                        <td>${i.jumlah || 0}</td>
+                        <td>${i.unit || '%'}</td>
+                    </tr>
+                `).join('')}
+            `;
         }
 
         function formatNumber(num) {
-            return typeof num === 'number' 
-                ? new Intl.NumberFormat('id-ID').format(num)
-                : num;
+            return new Intl.NumberFormat('id-ID').format(Number(num));
         }
 
         function showLoading() {
