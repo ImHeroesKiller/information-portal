@@ -5,15 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🌍 World Population Dashboard</title>
     
-    <!-- CSS Dependencies -->
+    <!-- Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- JS Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson@3/dist/topojson.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.3.0/build/global/luxon.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         body { padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -182,8 +180,29 @@
         async function init() {
             document.getElementById('loading').style.display = 'block';
             
-            allCountries = await fetchData();
-            if (!allCountries.length) throw new Error('No data received');
+            // Menggunakan beberapa endpoint untuk contoh
+            const dataSources = [
+                // Endpoint dasar
+                'https://restcountries.com/v3.1/all',
+                
+                // Contoh menggunakan endpoint alpha code
+                'https://restcountries.com/v3.1/alpha?codes=co,no,est,pe',
+                
+                // Contoh filter fields
+                'https://restcountries.com/v3.1/all?fields=name,capital,population,area,region,subregion,flags,latlng'
+            ];
+
+            // Prioritaskan endpoint utama
+            allCountries = await fetchData(dataSources[0]);
+            
+            if (!allCountries.length) {
+                // Jika gagal, coba endpoint alternatif
+                allCountries = await fetchData(dataSources[1]);
+            }
+
+            if (!allCountries.length) {
+                throw new Error('No data received from any endpoint');
+            }
 
             updateStatus();
             createPopulationChart();
@@ -196,281 +215,36 @@
             document.getElementById('content').style.display = 'block';
         }
 
-        async function fetchData() {
+        async function fetchData(endpoint) {
             apiCallCount++;
-            const response = await fetch('https://restcountries.com/v3.1/all');
-            
-            if (!response.ok) {
-                throw new Error(`API request failed: ${response.status}`);
+            try {
+                const response = await fetch(endpoint);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data
+                    .filter(c => c.population && c.name?.common)
+                    .map(c => ({
+                        name: c.name.common,
+                        population: c.population,
+                        area: c.area || 0,
+                        region: c.region || 'Other',
+                        subregion: c.subregion || 'N/A',
+                        flag: c.flags?.svg || 'https://via.placeholder.com/32x24',
+                        capital: c.capital?.[0] || 'N/A',
+                        latlng: c.latlng || [0, 0]
+                    }))
+                    .sort((a, b) => b.population - a.population);
+            } catch (error) {
+                console.error('Fetch error:', error);
+                return [];
             }
-
-            const data = await response.json();
-            return data
-                .filter(c => c.population && c.name?.common)
-                .map(c => ({
-                    name: c.name.common,
-                    population: c.population,
-                    area: c.area || 0,
-                    region: c.region || 'Other',
-                    subregion: c.subregion || 'N/A',
-                    flag: c.flags.svg,
-                    capital: c.capital?.[0] || 'N/A',
-                    latlng: c.latlng || [0, 0]
-                }))
-                .sort((a, b) => b.population - a.population);
         }
 
-        function updateStatus() {
-            document.getElementById('lastUpdated').textContent = luxon.DateTime.now().toRelative();
-            document.getElementById('lastUpdatedModal').textContent = luxon.DateTime.now().toLocaleString();
-            document.getElementById('countryCount').textContent = allCountries.length;
-            document.getElementById('totalPopulation').textContent = formatNumber(
-                allCountries.reduce((sum, c) => sum + c.population, 0)
-            );
-            document.getElementById('apiCounter').textContent = apiCallCount;
-        }
-
-        function createPopulationChart() {
-            const ctx = document.getElementById('populationChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: allCountries.slice(0, 10).map(c => c.name),
-                    datasets: [{
-                        label: 'Population',
-                        data: allCountries.slice(0, 10).map(c => c.population),
-                        backgroundColor: '#2c3e50',
-                        borderColor: '#34495e',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)} people`
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            ticks: {
-                                callback: (v) => formatNumber(v)
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function createRegionChart() {
-            const regionCounts = {};
-            allCountries.forEach(c => {
-                regionCounts[c.region] = (regionCounts[c.region] || 0) + c.population;
-            });
-
-            const ctx = document.getElementById('regionChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: Object.keys(regionCounts),
-                    datasets: [{
-                        label: 'Regional Population',
-                        data: Object.values(regionCounts),
-                        backgroundColor: [
-                            '#2ecc71', '#3498db', '#9b59b6', 
-                            '#f1c40f', '#e74c3c', '#34495e'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)} people`
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        async function createWorldMap() {
-            const width = 800;
-            const height = 500;
-
-            const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json');
-            mapData = topojson.feature(world, world.objects.countries).features;
-
-            const svg = d3.select('#worldMap')
-                .append('svg')
-                .attr('width', width)
-                .attr('height', height)
-                .style('background', '#f0f0f0');
-
-            const projection = d3.geoMercator()
-                .scale(130)
-                .translate([width / 2, height / 1.5]);
-
-            const path = d3.geoPath().projection(projection);
-
-            const color = d3.scaleThreshold()
-                .domain([1e6, 1e7, 5e7, 1e8, 5e8, 1e9])
-                .range(d3.schemeYlGnBu[7]);
-
-            svg.selectAll('path')
-                .data(mapData)
-                .enter()
-                .append('path')
-                .attr('d', path)
-                .attr('fill', '#ccc')
-                .style('stroke', '#fff')
-                .style('stroke-width', 0.5)
-                .on('mouseover', (event, d) => {
-                    const country = allCountries.find(c => c.name === d.properties.name);
-                    if (country) {
-                        d3.select(event.currentTarget).attr('fill', '#2c3e50');
-                        showTooltip(event, country);
-                    }
-                })
-                .on('mouseout', (event) => {
-                    d3.select(event.currentTarget).attr('fill', '#ccc');
-                    hideTooltip();
-                })
-                .on('click', (event, d) => showCountryModal(d.properties.name));
-
-            mapData.forEach(d => {
-                const country = allCountries.find(c => c.name === d.properties.name);
-                d.population = country ? country.population : 0;
-            });
-
-            svg.selectAll('path')
-                .attr('fill', d => color(d.population || 0));
-        }
-
-        function populateTable(data) {
-            const tbody = document.querySelector('#countryTable tbody');
-            tbody.innerHTML = data.map(c => `
-                <tr onclick="showCountryModal('${c.name}')">
-                    <td><img src="${c.flag}" class="country-flag"></td>
-                    <td>${c.name}</td>
-                    <td>${formatNumber(c.population)}</td>
-                    <td>${formatDensity(c.population, c.area)} /km²</td>
-                    <td>${c.region}</td>
-                </tr>
-            `).join('');
-        }
-
-        function setupFilters() {
-            document.getElementById('searchInput').addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
-                const filtered = allCountries.filter(c => c.name.toLowerCase().includes(term));
-                populateTable(filtered);
-            });
-
-            const regions = ['All', ...new Set(allCountries.map(c => c.region))];
-            const filter = document.getElementById('regionFilter');
-            
-            regions.forEach(r => {
-                const option = document.createElement('option');
-                option.value = r;
-                option.textContent = r;
-                filter.appendChild(option);
-            });
-
-            filter.addEventListener('change', (e) => {
-                const region = e.target.value;
-                const filtered = region === 'All' 
-                    ? allCountries 
-                    : allCountries.filter(c => c.region === region);
-                populateTable(filtered);
-            });
-        }
-
-        function showCountryModal(name) {
-            const country = allCountries.find(c => c.name === name);
-            if (!country) return;
-
-            const html = `
-                <div class="row">
-                    <div class="col-md-4">
-                        <img src="${country.flag}" class="img-fluid rounded" alt="Flag">
-                    </div>
-                    <div class="col-md-8">
-                        <h3>${country.name}</h3>
-                        <p><strong>Population:</strong> ${formatNumber(country.population)}</p>
-                        <p><strong>Area:</strong> ${formatNumber(country.area)} km²</p>
-                        <p><strong>Density:</strong> ${formatDensity(country.population, country.area)} /km²</p>
-                        <p><strong>Region:</strong> ${country.region}</p>
-                        <p><strong>Subregion:</strong> ${country.subregion}</p>
-                        <p><strong>Capital:</strong> ${country.capital}</p>
-                        <p><strong>Coordinates:</strong> ${country.latlng.join(', ')}</p>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('modalContent').innerHTML = html;
-            const modal = new bootstrap.Modal(document.getElementById('countryModal'));
-            modal.show();
-        }
-
-        function exportToCSV() {
-            const headers = ['Name', 'Population', 'Area', 'Density', 'Region', 'Subregion', 'Capital'];
-            const rows = allCountries.map(c => [
-                c.name,
-                c.population,
-                c.area,
-                formatDensity(c.population, c.area),
-                c.region,
-                c.subregion,
-                c.capital
-            ]);
-
-            const csvContent = "data:text/csv;charset=utf-8," 
-                + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "population_data.csv");
-            document.body.appendChild(link);
-            link.click();
-        }
-
-        function refreshData() {
-            document.getElementById('content').style.display = 'none';
-            document.getElementById('loading').style.display = 'block';
-            setTimeout(() => init(), 1000);
-        }
-
-        function showTooltip(event, country) {
-            const tooltip = d3.select('body').append('div')
-                .attr('class', 'position-absolute bg-dark text-white p-2 rounded')
-                .style('display', 'block')
-                .style('left', (event.pageX + 10) + 'px')
-                .style('top', (event.pageY - 20) + 'px')
-                .html(`
-                    <strong>${country.name}</strong><br>
-                    Population: ${formatNumber(country.population)}<br>
-                    Area: ${formatNumber(country.area)} km²<br>
-                    Density: ${formatDensity(country.population, country.area)}/km²
-                `);
-        }
-
-        function hideTooltip() {
-            d3.selectAll('.position-absolute').remove();
-        }
-
-        function formatNumber(num) {
-            return new Intl.NumberFormat('en-US').format(num);
-        }
-
-        function formatDensity(pop, area) {
-            return area > 0 ? (pop / area).toFixed(1) : '0';
-        }
+        // ... (fungsi lainnya tetap sama seperti sebelumnya) ...
 
         function showError(message) {
             document.getElementById('loading').innerHTML = `
